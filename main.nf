@@ -23,6 +23,7 @@ def helpMessage() {
     --chunkSize                    Number of fasta records to use when splitting the query fasta file
     --app                          BLAST program to use [blastn;blastp,tblastn,blastx]
     --help                         This usage statement.
+    --genome                       If specified with a genome fasta file, a BLAST database will be generated for the genome
     """
 }
 
@@ -32,18 +33,42 @@ if (params.help) {
   exit 0
 }
 
+
+
 Channel
   .fromPath(params.query)
   .splitFasta(by: params.chunkSize, file:true)
   .set { queryFile_ch }
 
-// This channel will grab the folder path and set it into a channel named dbDir_ch
-Channel.fromPath(params.dbDir)
-  .set { dbDir_ch }
+if (params.genome) {
+  genomeFile_ch = Channel
+    .fromPath(params.genome)
+    .map { file -> tuple(file.simpleName, file.parent, file) }
 
-// this channel will grab the text from params.dbName.  Notice it is just from and not fromPath.  nextflow will complain if you try to grab a path from a bit of text.
-Channel.from(params.dbName)
-  .set { dbName_ch }
+
+  process runMakeBlastDB {
+    input:
+    set val(dbName), path(dbDir), file(FILE) from genomeFile_ch
+
+    output:
+    val(dbName) into dbName_ch
+    path(dbDir) into dbDir_ch
+
+    script:
+    """
+    makeblastdb -in ${FILE} -dbtype 'nucl' -out ${dbDir}/${dbName}
+    """
+  }
+} else {
+  // This channel will grab the folder path and set it into a channel named dbDir_ch
+  Channel.fromPath(params.dbDir)
+    .set { dbDir_ch }
+
+  // this channel will grab the text from params.dbName.  Notice it is just from and not fromPath.  nextflow will complain if you try to grab a path from a bit of text.
+  Channel.from(params.dbName)
+    .set { dbName_ch }
+}
+
 
 process runBlast {
   container = 'ncbi/blast'

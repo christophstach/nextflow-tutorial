@@ -1,3 +1,10 @@
 .nextflow*
 work/
 out_dir/
+*.ndb
+*.nhr
+*.nin
+*.not
+*.nsq
+*.ntf
+*.nto
